@@ -17,6 +17,37 @@ def run(cmd):
 def ffmpeg_ready():
  return shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None
 
+def download_youtube(url,output_dir):
+ try:
+  import yt_dlp
+ except Exception as exc:
+  raise RuntimeError("YouTube import ke liye yt-dlp install nahi hai. Run: python -m pip install -U yt-dlp") from exc
+ url=url.strip()
+ if not re.match(r"^https?://(www\\.)?(youtube\\.com|youtu\\.be)/",url,re.I):
+  raise ValueError("Please valid YouTube video URL paste karein.")
+ folder=Path(output_dir); folder.mkdir(parents=True,exist_ok=True)
+ opts={
+  "format":"bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+  "outtmpl":str(folder/"source.%(ext)s"),
+  "merge_output_format":"mp4",
+  "noplaylist":True,
+  "quiet":True,
+  "no_warnings":True,
+  "overwrites":True
+ }
+ try:
+  with yt_dlp.YoutubeDL(opts) as ydl:
+   info=ydl.extract_info(url,download=True)
+   prepared=Path(ydl.prepare_filename(info))
+  candidates=[folder/"source.mp4",prepared]
+  candidates += sorted(folder.glob("source.*"),key=lambda p:p.stat().st_size if p.exists() else 0,reverse=True)
+  for candidate in candidates:
+   if candidate.exists() and candidate.is_file() and candidate.stat().st_size>0 and candidate.suffix.lower() not in (".part",".ytdl"):
+    return str(candidate)
+  raise RuntimeError("Download complete hua lekin output video file nahi mili.")
+ except Exception as exc:
+  raise RuntimeError(f"YouTube import failed: {exc}") from exc
+
 def probe_video(path):
  data=json.loads(run(["ffprobe","-v","error","-show_entries","format=duration:stream=width,height,r_frame_rate","-of","json",path]))
  v=next(s for s in data["streams"] if "width" in s); n,d=v.get("r_frame_rate","30/1").split("/")
@@ -39,7 +70,7 @@ def make_candidates(duration,scenes,target):
  return result[:30] or [(0.0,round(min(duration,target),2))]
 
 def parse_srt(path):
- blocks=re.split(r"\n\s*\n",Path(path).read_text(encoding="utf-8-sig",errors="replace").strip()); rows=[]
+ blocks=re.split(r"\\n\\s*\\n",Path(path).read_text(encoding="utf-8-sig",errors="replace").strip()); rows=[]
  def seconds(t):
   h,m,s=t.replace(",",".").split(":"); return int(h)*3600+int(m)*60+float(s)
  for block in blocks:
@@ -73,9 +104,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   if style.get("theme")=="Karaoke":
    words=txt.split(); each=max(1,int((b-a)*100/max(1,len(words))))
    txt=" ".join("{\\k"+str(each)+"}"+w for w in words)
-  txt=txt.replace("{","(").replace("}",")").replace("\n"," ")
+  txt=txt.replace("{","(").replace("}",")").replace("\\n"," ")
   events.append(f"Dialogue: 0,{ass_time(a-start)},{ass_time(b-start)},Default,,0,0,0,,{txt}")
- Path(ass_path).write_text(header+"\n".join(events)+"\n",encoding="utf-8")
+ Path(ass_path).write_text(header+"\\n".join(events)+"\\n",encoding="utf-8")
 
 def transcribe_local(path):
  try:
@@ -93,7 +124,7 @@ def transcribe_local(path):
   for word in parts:
    text=word.word.strip() if seg.words else word.text.strip()
    out.extend([str(idx),f"{stamp(word.start)} --> {stamp(word.end)}",text,""]); idx+=1
- return "\n".join(out)
+ return "\\n".join(out)
 
 def render_clip(source,output,start,end,aspect,resolution,srt_path=None,style=None):
  sizes={
@@ -105,7 +136,7 @@ def render_clip(source,output,start,end,aspect,resolution,srt_path=None,style=No
  ass_path=None
  if srt_path:
   ass_path=str(Path(output).with_suffix(".ass")); write_ass(srt_path,ass_path,style or {},start,end)
-  escaped=ass_path.replace("\\","/").replace(":","\\:")
+  escaped=ass_path.replace("\\\\","/").replace(":","\\\\:")
   filters+=f",ass='{escaped}'"
  run(["ffmpeg","-y","-ss",str(start),"-i",source,"-t",str(end-start),"-vf",filters,"-c:v","libx264","-preset","veryfast","-crf","19","-pix_fmt","yuv420p","-c:a","aac","-b:a","192k","-movflags","+faststart",output])
  if ass_path and Path(ass_path).exists(): Path(ass_path).unlink()
