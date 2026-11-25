@@ -78,6 +78,21 @@ if source and Path(source).exists():
    if st.checkbox(f"Clip {i+1}: {a:.1f}s–{b:.1f}s · Potential {score}/99 · {reason}",True,key=f"c{i}"): selected.append((a,b))
   st.session_state["selected"]=selected
  with t2:
+  st.write("Generate subtitles from the video's audio using the local Faster-Whisper model.")
+  if st.button("🎙️ Generate captions now",type="primary"):
+   try:
+    with st.spinner("Speech recognition chal rahi hai. Pehli baar model download bhi ho sakta hai..."):
+     txt=transcribe_local(str(src))
+     if not txt.strip():
+      raise RuntimeError("Audio se speech detect nahi hui. Video mein clear spoken audio check karein.")
+     p=work/"auto_captions.srt"
+     p.write_text(txt,encoding="utf-8")
+     st.session_state["srt"]=str(p)
+     st.session_state["caption_status"]="Auto captions ready"
+    st.success("Captions generate ho gaye. Ab Export tab se render karein.")
+   except Exception as exc:
+    st.session_state["caption_status"]=f"{type(exc).__name__}: {exc}"
+    st.error("Captions generate nahi hue: "+st.session_state["caption_status"])
   uploaded_srt=st.file_uploader("Upload SRT subtitle file",type=["srt"])
   if uploaded_srt:
    p=work/"captions.srt"; p.write_bytes(uploaded_srt.getbuffer()); st.session_state["srt"]=str(p)
