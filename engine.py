@@ -17,30 +17,42 @@ def run(cmd):
 def ffmpeg_ready():
  return shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None
 
-def download_youtube(url,output_dir):
+def download_youtube(url,output_dir,quality="720p",progress_hook=None):
  try:
   import yt_dlp
  except Exception as exc:
-  raise RuntimeError("YouTube import ke liye yt-dlp install nahi hai. Run: python -m pip install -U yt-dlp") from exc
+  raise RuntimeError("YouTube import ke liye yt-dlp install nahi hai. Run: J:\\python.exe -m pip install -U yt-dlp") from exc
  url=url.strip()
  if not re.match(r"^https?://(www\.)?(youtube\.com|youtu\.be)/",url,re.I):
   raise ValueError("Please valid YouTube video URL paste karein.")
+ limits={"480p":480,"720p":720,"1080p":1080}
+ if quality not in limits: quality="720p"
+ max_height=limits[quality]
  folder=Path(output_dir); folder.mkdir(parents=True,exist_ok=True)
  opts={
-  "format":"bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-  "outtmpl":str(folder/"source.%(ext)s"),
-  "merge_output_format":"mp4",
+  "format":f"best[height<={max_height}][ext=mp4]/best[height<={max_height}]/best",
+  "outtmpl":str(folder/"source_%(id)s.%(ext)s"),
   "noplaylist":True,
   "quiet":True,
   "no_warnings":True,
-  "overwrites":True
+  "overwrites":True,
+  "continuedl":True,
+  "socket_timeout":20,
+  "retries":2,
+  "fragment_retries":2,
+  "extractor_retries":2,
+  "file_access_retries":2,
+  "concurrent_fragment_downloads":4,
+  "progress_hooks":[progress_hook] if progress_hook else []
  }
  try:
   with yt_dlp.YoutubeDL(opts) as ydl:
    info=ydl.extract_info(url,download=True)
    prepared=Path(ydl.prepare_filename(info))
-  candidates=[folder/"source.mp4",prepared]
-  candidates += sorted(folder.glob("source.*"),key=lambda p:p.stat().st_size if p.exists() else 0,reverse=True)
+  candidates=[prepared]
+  if info.get("requested_downloads"):
+   candidates += [Path(x["filepath"]) for x in info["requested_downloads"] if x.get("filepath")]
+  candidates += sorted(folder.glob("source_*.*"),key=lambda p:p.stat().st_mtime,reverse=True)
   for candidate in candidates:
    if candidate.exists() and candidate.is_file() and candidate.stat().st_size>0 and candidate.suffix.lower() not in (".part",".ytdl"):
     return str(candidate)
