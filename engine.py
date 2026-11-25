@@ -17,41 +17,31 @@ def run(cmd):
 def ffmpeg_ready():
  return shutil.which("ffmpeg") is not None and shutil.which("ffprobe") is not None
 
-def download_youtube(url,output_dir,quality="720p",progress_hook=None):
+def download_youtube(url,output_dir,quality="Best available",progress_hook=None):
  try:
   import yt_dlp
  except Exception as exc:
-  raise RuntimeError("YouTube import ke liye yt-dlp install nahi hai. Run: J:\\python.exe -m pip install -U yt-dlp") from exc
+  raise RuntimeError("YouTube import ke liye yt-dlp install nahi hai. Run: J:\\python.exe -m pip install -U yt-dlp[default]") from exc
  url=url.strip()
- if not re.match(r"^https?://(www\.)?(youtube\.com|youtu\.be)/",url,re.I):
+ if not re.match(r"^https?://(www\\.)?(youtube\\.com|youtu\\.be)/",url,re.I):
   raise ValueError("Please valid YouTube video URL paste karein.")
- limits={"480p":480,"720p":720,"1080p":1080}
- if quality not in limits: quality="720p"
- max_height=limits[quality]
  folder=Path(output_dir); folder.mkdir(parents=True,exist_ok=True)
- # Prefer a single-file progressive stream; fall back to best available
- # format so videos without a matching MP4 height still import.
+ formats={"Best available":"bv*+ba/b","1080p":"bv*[height<=1080]+ba/b[height<=1080]/b","720p":"bv*[height<=720]+ba/b[height<=720]/b"}
  opts={
-  "format":f"best[height<={max_height}]/best",
+  "format":formats.get(quality,formats["Best available"]),
+  "format_sort":["res","ext:mp4:m4a"],
+  "merge_output_format":"mp4",
   "outtmpl":str(folder/"source_%(id)s.%(ext)s"),
-  "noplaylist":True,
-  "quiet":True,
-  "no_warnings":True,
-  "overwrites":True,
-  "continuedl":True,
-  "socket_timeout":30,
-  "retries":3,
-  "fragment_retries":3,
-  "extractor_retries":3,
-  "file_access_retries":2,
-  "concurrent_fragment_downloads":4,
+  "noplaylist":True,"quiet":True,"no_warnings":True,"overwrites":True,
+  "continuedl":True,"socket_timeout":30,"retries":5,"fragment_retries":5,
+  "extractor_retries":3,"file_access_retries":3,"concurrent_fragment_downloads":4,
   "progress_hooks":[progress_hook] if progress_hook else []
  }
  try:
   with yt_dlp.YoutubeDL(opts) as ydl:
    info=ydl.extract_info(url,download=True)
    prepared=Path(ydl.prepare_filename(info))
-  candidates=[prepared]
+  candidates=[prepared,prepared.with_suffix(".mp4")]
   if info.get("requested_downloads"):
    candidates += [Path(x["filepath"]) for x in info["requested_downloads"] if x.get("filepath")]
   candidates += sorted(folder.glob("source_*.*"),key=lambda p:p.stat().st_mtime,reverse=True)
@@ -82,6 +72,23 @@ def make_candidates(duration,scenes,target):
   while t<duration-5:
    result.append((round(t,2),round(min(duration,t+target),2))); t+=step
  return result[:30] or [(0.0,round(min(duration,target),2))]
+
+def rank_candidates(duration,scenes,target):
+ candidates=make_candidates(duration,scenes,target)
+ ranked=[]
+ for start,end in candidates:
+  cuts=sum(1 for point in scenes if start < point < end)
+  length=max(1,end-start)
+  activity=min(1.0,cuts/max(1,length/8))
+  completeness=min(1.0,length/max(15,target*.65))
+  score=round(min(99,35+activity*48+completeness*16),1)
+  reasons=[]
+  if cuts: reasons.append(f"{cuts} scene changes")
+  if activity>=.5: reasons.append("high visual activity")
+  if completeness>=.9: reasons.append("good clip length")
+  ranked.append({"start":start,"end":end,"score":score,"reason":", ".join(reasons) or "steady visual segment"})
+ return sorted(ranked,key=lambda item:item["score"],reverse=True)
+
 
 def parse_srt(path):
  blocks=re.split(r"\n\s*\n",Path(path).read_text(encoding="utf-8-sig",errors="replace").strip()); rows=[]
