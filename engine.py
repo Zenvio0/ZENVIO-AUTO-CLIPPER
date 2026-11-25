@@ -23,7 +23,7 @@ def download_youtube(url,output_dir,quality="Best available",progress_hook=None)
  except Exception as exc:
   raise RuntimeError("YouTube import ke liye yt-dlp install nahi hai. Run: J:\\python.exe -m pip install -U yt-dlp[default]") from exc
  url=url.strip()
- if not re.match(r"^https?://(www\\.)?(youtube\\.com|youtu\\.be)/",url,re.I):
+ if not re.match(r"^https?://(www\.)?(youtube\.com|youtu\.be)/",url,re.I):
   raise ValueError("Please valid YouTube video URL paste karein.")
  folder=Path(output_dir); folder.mkdir(parents=True,exist_ok=True)
  formats={"Best available":"bv*+ba/b","1080p":"bv*[height<=1080]+ba/b[height<=1080]/b","720p":"bv*[height<=720]+ba/b[height<=720]/b"}
