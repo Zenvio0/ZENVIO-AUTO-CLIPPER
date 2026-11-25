@@ -73,7 +73,7 @@ def make_candidates(duration,scenes,target):
    result.append((round(t,2),round(min(duration,t+target),2))); t+=step
  return result[:30] or [(0.0,round(min(duration,target),2))]
 
-def rank_candidates(duration,scenes,target):
+def rank_candidates(duration,scenes,target,source_path=None):
  candidates=make_candidates(duration,scenes,target)
  ranked=[]
  for start,end in candidates:
@@ -81,12 +81,21 @@ def rank_candidates(duration,scenes,target):
   length=max(1,end-start)
   activity=min(1.0,cuts/max(1,length/8))
   completeness=min(1.0,length/max(15,target*.65))
-  score=round(min(99,35+activity*48+completeness*16),1)
+  audio_score=0.0
+  if source_path:
+   try:
+    p=subprocess.run(["ffmpeg","-hide_banner","-ss",str(start),"-i",source_path,"-t",str(length),"-vn","-af","volumedetect","-f","null","-"],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+    match=re.search(r"max_volume:\s*(-?[0-9.]+) dB",p.stderr)
+    if match: audio_score=max(0.0,min(1.0,(float(match.group(1))+50)/40))
+   except Exception:
+    pass
+  score=round(min(99,30+activity*40+audio_score*20+completeness*9),1)
   reasons=[]
   if cuts: reasons.append(f"{cuts} scene changes")
   if activity>=.5: reasons.append("high visual activity")
+  if audio_score>=.5: reasons.append("strong audio peak")
   if completeness>=.9: reasons.append("good clip length")
-  ranked.append({"start":start,"end":end,"score":score,"reason":", ".join(reasons) or "steady visual segment"})
+  ranked.append({"start":start,"end":end,"score":score,"reason":", ".join(reasons) or "steady segment"})
  return sorted(ranked,key=lambda item:item["score"],reverse=True)
 
 
