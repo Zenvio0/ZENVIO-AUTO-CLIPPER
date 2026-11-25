@@ -22,13 +22,41 @@ with st.sidebar:
 
 st.subheader("1. Import your video")
 url=st.text_input("YouTube video link",placeholder="https://www.youtube.com/watch?v=...")
+import_quality=st.selectbox("YouTube import quality",["480p · Fast","720p · Balanced","1080p · High quality"],index=1)
+quality_map={"480p · Fast":"480p","720p · Balanced":"720p","1080p · High quality":"1080p"}
+st.caption("Fast import downloads a lower-resolution source. 4K export can upscale it; it does not restore original 4K detail.")
 if st.button("⬇️ Import from YouTube",type="primary",disabled=not url.strip()):
+ progress=st.progress(0)
+ progress_text=st.empty()
+ progress_text.info("YouTube se connect ho rahe hain...")
+ def update_download_progress(data):
+  status=data.get("status")
+  if status=="downloading":
+   downloaded=data.get("downloaded_bytes",0) or 0
+   total=data.get("total_bytes") or data.get("total_bytes_estimate") or 0
+   if total:
+    pct=max(0,min(99,int(downloaded*100/total)))
+    progress.progress(pct)
+    amount=f"{downloaded/1048576:.1f} / {total/1048576:.1f} MB"
+   else:
+    pct=0
+    amount=f"{downloaded/1048576:.1f} MB downloaded"
+   speed=data.get("speed")
+   eta=data.get("eta")
+   speed_text=f"{speed/1048576:.2f} MB/s" if speed else "calculating speed..."
+   eta_text=f" · ETA {int(eta)}s" if eta is not None else ""
+   progress_text.info(f"Downloading: {pct}% · {amount} · {speed_text}{eta_text}")
+  elif status=="finished":
+   progress.progress(100)
+   progress_text.info("Download complete. Video file finalize ho rahi hai...")
  try:
-  with st.spinner("YouTube video import ho rahi hai... please wait."):
-   st.session_state["source"]=download_youtube(url,str(work))
+  with st.spinner("Import process chal raha hai..."):
+   st.session_state["source"]=download_youtube(url,str(work),quality_map[import_quality],update_download_progress)
    st.session_state.pop("clips",None)
-  st.success("YouTube video imported successfully!")
+  progress.progress(100)
+  progress_text.success("YouTube video successfully import ho gayi!")
  except Exception as exc:
+  progress_text.empty()
   st.error(str(exc))
 
 uploaded=st.file_uploader("Or upload a video from your computer",type=["mp4","mov","mkv","webm","m4v"])
