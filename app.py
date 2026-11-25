@@ -122,7 +122,7 @@ if source and Path(source).exists():
   sample={"Viral Yellow":"<span style='color:#ffe500;font-weight:900'>THIS IS THE MOMENT!</span>","Bold Creator":"<span style='color:white;font-weight:1000'>MAKE IT COUNT.</span>","Cinematic":"<span style='color:#f3e9d2'>A STORY IN EVERY FRAME</span>","Neon Glow":"<span style='color:#65f7ff;text-shadow:0 0 12px #00d9ff'>LEVEL UP</span>","Karaoke":"<span style='color:white;font-weight:900'>♪ WORD BY WORD ♪</span>","Minimal White":"<span style='color:white'>simple. clean. clear.</span>"}
   st.markdown("<div style='background:#171b27;padding:24px;text-align:center;font-size:28px;border-radius:12px'>"+sample[theme]+"</div>",unsafe_allow_html=True)
  with t3:
-  st.write(f"Export: **{resolution} · {canvas} · MP4**")
+  st.write(f"Export: **{resolution} · {canvas} · 30 FPS · MP4**")
   default_folder=str(Path.home()/"Videos"/"ZENVIO_CLIPS")
   save_folder=st.text_input("Save exported clips to this folder",value=st.session_state.get("save_folder",default_folder))
   st.session_state["save_folder"]=save_folder
