@@ -29,18 +29,20 @@ def download_youtube(url,output_dir,quality="720p",progress_hook=None):
  if quality not in limits: quality="720p"
  max_height=limits[quality]
  folder=Path(output_dir); folder.mkdir(parents=True,exist_ok=True)
+ # Prefer a single-file progressive stream; fall back to best available
+ # format so videos without a matching MP4 height still import.
  opts={
-  "format":f"best[height<={max_height}][ext=mp4]/best[height<={max_height}]/best",
+  "format":f"best[height<={max_height}]/best",
   "outtmpl":str(folder/"source_%(id)s.%(ext)s"),
   "noplaylist":True,
   "quiet":True,
   "no_warnings":True,
   "overwrites":True,
   "continuedl":True,
-  "socket_timeout":20,
-  "retries":2,
-  "fragment_retries":2,
-  "extractor_retries":2,
+  "socket_timeout":30,
+  "retries":3,
+  "fragment_retries":3,
+  "extractor_retries":3,
   "file_access_retries":2,
   "concurrent_fragment_downloads":4,
   "progress_hooks":[progress_hook] if progress_hook else []
