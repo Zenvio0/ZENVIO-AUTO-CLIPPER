@@ -79,7 +79,7 @@ if source and Path(source).exists():
   if st.button("Analyze video + auto captions",type="primary"):
    with st.spinner("Scenes analyze ho rahe hain aur captions locally generate ho rahe hain..."):
     scene_points=detect_scenes(str(src),sensitivity)
-    ranked=rank_candidates(info["duration"],scene_points,target)
+    ranked=rank_candidates(info["duration"],scene_points,target,str(src))
     st.session_state["ranked_clips"]=ranked
     st.session_state["clips"]=[(x["start"],x["end"]) for x in ranked]
     st.session_state["source"]=str(src); st.session_state["work"]=str(work)
