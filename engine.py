@@ -26,7 +26,7 @@ def download_youtube(url,output_dir,quality="Best available",progress_hook=None)
  if not re.match(r"^https?://(www\.)?(youtube\.com|youtu\.be)/",url,re.I):
   raise ValueError("Please valid YouTube video URL paste karein.")
  folder=Path(output_dir); folder.mkdir(parents=True,exist_ok=True)
- formats={"Best available":"bv*+ba/b","1080p":"bv*[height<=1080]+ba/b[height<=1080]/b","720p":"bv*[height<=720]+ba/b[height<=720]/b"}
+ formats={"Best available":"bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best","1080p":"bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]/best","720p":"bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4][height<=720]/best"}
  opts={
   "format":formats.get(quality,formats["Best available"]),
   "format_sort":["res","ext:mp4:m4a"],
@@ -50,7 +50,7 @@ def download_youtube(url,output_dir,quality="Best available",progress_hook=None)
     return str(candidate)
   raise RuntimeError("Download complete hua lekin output video file nahi mili.")
  except Exception as exc:
-  raise RuntimeError(f"YouTube import failed: {exc}") from exc
+  raise RuntimeError(f"YouTube import failed: {exc!r}") from exc
 
 def probe_video(path):
  data=json.loads(run(["ffprobe","-v","error","-show_entries","format=duration:stream=width,height,r_frame_rate","-of","json",path]))
@@ -162,7 +162,7 @@ def render_clip(source,output,start,end,aspect,resolution,srt_path=None,style=No
  (1,1):{"4K":(2160,2160),"1080p":(1080,1080),"720p":(720,720)},
  (16,9):{"4K":(3840,2160),"1080p":(1920,1080),"720p":(1280,720)}}
  width,height=sizes[aspect][resolution]
- filters=f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1"
+ filters=f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1,fps=30"
  ass_path=None
  if srt_path:
   ass_path=str(Path(output).with_suffix(".ass")); write_ass(srt_path,ass_path,style or {},start,end)
